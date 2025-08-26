@@ -2,6 +2,22 @@ from abc import ABC, abstractmethod, abstractproperty, abstractclassmethod
 from datetime import datetime
 import textwrap
 
+class ContaIterador:
+    def __init__(self, contas):
+        self.contas = contas
+        self.contador = 0
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        try: 
+            conta = self.contas[self.contador]
+            self.contador += 1
+            return conta
+        except IndexError:
+            raise StopIteration
+
 class Conta:
     def __init__(self, numero, cliente):
         self._saldo = 0
@@ -151,6 +167,26 @@ class Historico:
             }
         )
 
+    def gerar_relatorio(self, tipo_operacao = None):
+        if tipo_operacao:
+            relatorio_filtrado = [transacao for transacao in self._transacoes if transacao['tipo'].lower() == tipo_operacao]
+            return relatorio_filtrado
+        else:
+            return self._transacoes
+
+def log_transacao(func):
+    def exibir_transacao(*args, **kwargs):
+        retorno = func(*args,**kwargs)
+        if retorno:
+            if retorno[0]:
+                operacao = retorno[0]
+            if retorno[1]:
+                data = retorno[1]
+            print(f"Operação: {operacao} \nData: {data}")
+
+    return exibir_transacao
+
+@log_transacao
 def criar_cliente(clientes):
     cpf = input("Informe o CPF do cliente: ")
     cliente = filtrar_cliente_por_cpf(cpf, clientes)
@@ -168,7 +204,13 @@ def criar_cliente(clientes):
     clientes.append(cliente)
 
     print("Cliente cadastrado com sucesso!")
+
+    data = datetime.now().strftime("%d-%m-%Y - Hora: %H:%M:%S")
+    operacao = "Criar Cliente"
+
+    return operacao, data
     
+@log_transacao
 def criar_conta(numero_conta, clientes, contas):
     cpf = input("Informe o CPF do cliente: ")
     cliente = filtrar_cliente_por_cpf(cpf, clientes)
@@ -182,14 +224,13 @@ def criar_conta(numero_conta, clientes, contas):
     cliente.contas.append(conta)
 
     print("Conta criada com sucesso!")
-    
-def listar_contas(contas):
-    for conta in contas:
-        print("=" * 50)
-        print(textwrap.dedent(str(conta)))
-    else:
-        print("Nenhuma conta encontrada.")
 
+    data = datetime.now().strftime("%d-%m-%Y - Hora: %H:%M:%S")
+    operacao = "Criar Conta"
+
+    return operacao, data
+
+@log_transacao
 def exibir_extrato(clientes):
     cpf = input("Informe o CPF do cliente: ")
     cliente = filtrar_cliente_por_cpf(cpf, clientes)
@@ -204,9 +245,12 @@ def exibir_extrato(clientes):
     if not conta:
         print("Operação inválida! Nenhuma conta encontrada.")
         return
+    
+    tipo_operacao = input("Informe um filtro de operações (opcional): ").strip().lower()
 
     print("==========Extrato==========")
-    transacoes = conta.historico.transacoes
+    transacoes = conta.historico.gerar_relatorio(tipo_operacao)
+
     if transacoes:
         for transacao in transacoes:
             if transacao["tipo"] == "Saque":
@@ -217,9 +261,15 @@ def exibir_extrato(clientes):
         print("Nenhuma operação econtrada!")
 
     s = "Saldo Atual:"
-    print(f"{s.ljust(20, ".")} R${conta._saldo:.2f}")
+    print(f"{s.ljust(20, '.')} R${conta._saldo:.2f}")
     print("===========================")
 
+    data = datetime.now().strftime("%d-%m-%Y - Hora: %H:%M:%S")
+    operacao = "Exibir Extrato"
+
+    return operacao, data
+
+@log_transacao
 def depositar_ou_sacar(operacao, clientes):
     cpf = input("Informe o CPF do cliente: ")
     cliente = filtrar_cliente_por_cpf(cpf, clientes)
@@ -241,6 +291,22 @@ def depositar_ou_sacar(operacao, clientes):
         transacao = Deposito(valor)
     
     cliente.realizar_transacao(conta, transacao)
+
+    data = datetime.now().strftime("%d-%m-%Y - Hora: %H:%M:%S")
+    if operacao.__name__ == "Saque":
+        transacao = "Saque"
+    else:
+        transacao = "Deposito"
+
+    return transacao, data
+
+def listar_contas(contas):
+    if contas:
+        for conta in ContaIterador(contas):
+            print("=" * 50)
+            print(textwrap.dedent(str(conta)))
+    else:
+        print("Nenhuma conta encontrada.")
 
 def filtrar_cliente_por_cpf(cpf, clientes):
     clientes_filtrados = [cliente for cliente in clientes if cliente.cpf == cpf]
