@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod, abstractproperty, abstractclassmethod
-from datetime import datetime
+from datetime import datetime, date
 import textwrap
 
 class ContaIterador:
@@ -92,6 +92,7 @@ class ContaCorrente(Conta):
 Agência: {self._agencia}
 C/C: {self._numero}
 Titular: {self.cliente._nome}
+Saldo: R${self._saldo:.2f}
 """
     
 class Cliente:
@@ -100,6 +101,10 @@ class Cliente:
         self.contas = []
 
     def realizar_transacao(self, conta, transacao):
+        if len(conta.historico.transacoes_do_dia()) >= 10:
+            print("Operação inválida! Número máximo de transações diárias alcançado, tente novamente amanhã.")
+            return
+        
         transacao.registrar(conta)
 
     def adicionar_conta(self, conta):
@@ -163,7 +168,7 @@ class Historico:
             {
                 "tipo": transacao.__class__.__name__,
                 "valor": transacao._valor,
-                "data": datetime.now().strftime("%d-%m-%Y %H:%M:%S"),
+                "data": datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
             }
         )
 
@@ -173,6 +178,16 @@ class Historico:
             return relatorio_filtrado
         else:
             return self._transacoes
+        
+    def transacoes_do_dia(self):
+        data_atual = datetime.utcnow().date()
+        transacoes_diarias = []
+        for transacao in self._transacoes:
+            data_transacao = datetime.strptime(transacao['data'], "%d/%m/%Y %H:%M:%S").date()
+            if data_transacao == data_atual:
+                transacoes_diarias.append(transacao)
+        
+        return transacoes_diarias
 
 def log_transacao(func):
     def exibir_transacao(*args, **kwargs):
@@ -253,10 +268,10 @@ def exibir_extrato(clientes):
 
     if transacoes:
         for transacao in transacoes:
-            if transacao["tipo"] == "Saque":
-                print(f"{transacao['tipo'].ljust(20, '.')} -R${transacao['valor']:.2f}")
+            if transacao["tipo"].lower() == "saque":
+                print(f"{transacao['data']} \n{transacao['tipo'].ljust(20, '.')} -R${transacao['valor']:.2f}")
             else:
-                print(f"{transacao['tipo'].ljust(20, '.')} +R${transacao['valor']:.2f}")
+                print(f"{transacao['data']} \n{transacao['tipo'].ljust(20, '.')} +R${transacao['valor']:.2f}")
     else:
         print("Nenhuma operação econtrada!")
 
@@ -264,7 +279,7 @@ def exibir_extrato(clientes):
     print(f"{s.ljust(20, '.')} R${conta._saldo:.2f}")
     print("===========================")
 
-    data = datetime.now().strftime("%d-%m-%Y - Hora: %H:%M:%S")
+    data = datetime.now().strftime("%d/%m/%Y - Hora: %H:%M:%S")
     operacao = "Exibir Extrato"
 
     return operacao, data
