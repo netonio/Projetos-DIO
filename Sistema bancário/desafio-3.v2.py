@@ -1,6 +1,9 @@
 from abc import ABC, abstractmethod, abstractproperty, abstractclassmethod
 from datetime import datetime, date
 import textwrap
+from pathlib import Path
+
+ROOT_PATH = Path(__file__).parent
 
 class ContaIterador:
     def __init__(self, contas):
@@ -95,6 +98,9 @@ Titular: {self.cliente._nome}
 Saldo: R${self._saldo:.2f}
 """
     
+    def __repr__(self):
+        return f"<{self.__class__.__name__}: ('{self.agencia}', '{self.numero}', '{self.cliente.nome}')>"
+    
 class Cliente:
     def __init__(self, endereco):
         self._endereco = endereco
@@ -118,8 +124,15 @@ class PessoaFisica(Cliente):
         self._data_nascimento = data_nascimento
 
     @property
+    def nome(self):
+        return self._nome
+
+    @property
     def cpf(self):
         return self._cpf
+    
+    def __repr__(self):
+        return f"<{self.__class__.__name__}: ({self.cpf})>"
 
 class Transacao(ABC):
     @property
@@ -192,12 +205,19 @@ class Historico:
 def log_transacao(func):
     def exibir_transacao(*args, **kwargs):
         retorno = func(*args,**kwargs)
+        data_hora = datetime.utcnow().strftime("%Y/%m/%d %H:%M:%S")
         if retorno:
             if retorno[0]:
                 operacao = retorno[0]
             if retorno[1]:
                 data = retorno[1]
             print(f"Operação: {operacao} \nData: {data}")
+        try:
+            with open(ROOT_PATH / 'logs.txt', 'a', encoding="UTF-8") as arquivo:
+                arquivo.write(f"[{data_hora}] Função '{func.__name__}' executada com argumentos {args} e {kwargs}. Retornou {retorno}\n")
+                arquivo.close()
+        except Exception as erro:
+            print(f"Não foi possível abrir o arquivo de log. Erro: {erro}")
 
     return exibir_transacao
 
